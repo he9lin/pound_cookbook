@@ -1,0 +1,40 @@
+#!/usr/bin/env bats
+
+match() {
+  local p=$1 v
+  shift
+  for v
+    do [[ $v = $p ]] && return
+  done
+  return 1
+}
+
+@test "The Pound service is running" {
+  run service pound status
+  echo "$output" | grep -Eq 'pound.*is running'
+}
+
+@test "Two Pound backends are active" {
+  run poundctl -c /var/lib/pound/pound.cfg
+  match "*Backend*8000*active*" "${lines[@]}"
+  match "*Backend*8001*active*" "${lines[@]}"
+}
+
+@test "Pound has an HTTP listener" {
+  run poundctl -c /var/lib/pound/pound.cfg
+  match "*http Listener*" "${lines[@]}"
+}
+
+@test "Pound does not have an HTTPS listener" {
+  run poundctl -c /var/lib/pound/pound.cfg
+  ! match "*HTTPS Listener*" "${lines[@]}"
+}
+
+@test "Server is listening on port 80" {
+  run nmap -sT -p80 localhost
+  match "80/tcp open  http" "${lines[@]}"
+}
+
+@test "Server accepts HTTP requests" {
+  echo "GET / HTTP/1.1" | nc localhost 80
+}
